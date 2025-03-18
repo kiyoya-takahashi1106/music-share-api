@@ -4,12 +4,10 @@ import (
     "database/sql"
     "fmt"
     "log"
-
-    _ "github.com/go-sql-driver/mysql"
 )
 
 type AuthRepository interface {
-    CreateUser(userName, email, hashedPassword, profileImageURL, role string) (int, error)
+    CreateUser(userName, email, hashedPassword string) (int, error)
     GetUserByEmail(email string) (int, string, string, string, bool, error)
 }
 
@@ -18,20 +16,18 @@ type authRepository struct {
 }
 
 func NewAuthRepository(db *sql.DB) AuthRepository {
-    return &authRepository{
-        DB: db,
-    }
+    return &authRepository{DB: db}
 }
 
-// CreateUser 新規ユーザー作成
-func (r *authRepository) CreateUser(userName, email, hashedPassword) (int, error) {
+func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int, error) {
     query := `
-				INSERT INTO trx_users 
-				(user_name, email, hash_password, profile_image_url, role, is_verified)
-              	VALUES (?, ?, ?, ?, ?, ?)
-			 `
+        INSERT INTO trx_users 
+        (user_name, email, hash_password, profile_image_url, role, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `
 
-    result, err := r.DB.Exec(query, userName, email, hashedPassword)
+    // profile_image_url: 空文字、role: "user", is_verified: false を設定
+    result, err := r.DB.Exec(query, userName, email, hashedPassword, "", "user", false)
     if err != nil {
         log.Println("Error inserting user:", err)
         return 0, fmt.Errorf("error creating user: %v", err)
@@ -45,21 +41,18 @@ func (r *authRepository) CreateUser(userName, email, hashedPassword) (int, error
     return int(userID), nil
 }
 
-
-// GetUserByEmail メールでユーザーを取得
 func (r *authRepository) GetUserByEmail(email string) (int, string, string, string, bool, error) {
     var userID int
     var userName, hashedPassword, role string
     var isVerified bool
 
     query := `
-				SELECT user_id, user_name, hash_password, role, is_verified
-			  	FROM trx_users 
-			  	WHERE email = ?
-			  	LIMIT 1
-			  `
+        SELECT user_id, user_name, hash_password, role, is_verified
+        FROM trx_users 
+        WHERE email = ?
+        LIMIT 1
+    `
     err := r.DB.QueryRow(query, email).Scan(&userID, &userName, &hashedPassword, &role, &isVerified)
-
     if err != nil {
         if err == sql.ErrNoRows {
             return 0, "", "", "", false, fmt.Errorf("user not found")

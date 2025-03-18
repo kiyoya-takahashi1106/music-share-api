@@ -8,44 +8,45 @@ import (
 )
 
 type AuthService interface {
-	// RegisterUser 新規ユーザー登録
-	RegisterUser(userName, email, hashedPassword string) (int, string, string, error)
-	// LoginUser ログイン処理
+	RegisterUser(userName, email, password string) (int, string, string, error)
 	LoginUser(email, password string) (int, string, string, string, bool, error)
 }
 
 type authService struct {
-	authRepo repositories.AuthRepository
+	repo repositories.AuthRepository
 }
 
-func NewAuthService(authRepo repositories.AuthRepository) AuthService {
-	return &authService{
-		authRepo: authRepo,
-	}
+func NewAuthService(r repositories.AuthRepository) AuthService {
+	return &authService{repo: r}
 }
 
 // RegisterUser 新規ユーザー登録
-func (s *authService) RegisterUser(userName, email, hashedPassword string) (int, string, string, error) {
-	userID, err := s.authRepo.CreateUser(userName, email, hashedPassword)
+func (s *authService) RegisterUser(userName, email, password string) (int, string, string, error) {
+	// パスワードをハッシュ化
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, "", "", err
 	}
-	return userID, userName, email, nil
-}
+	hashed := string(hashedBytes)
 
+	id, err := s.repo.CreateUser(userName, email, hashed)
+	if err != nil {
+		return 0, "", "", err
+	}
+	return id, userName, email, nil
+}
 
 // LoginUser ログイン処理
 func (s *authService) LoginUser(email, password string) (int, string, string, string, bool, error) {
-	userID, userName, hashedPassword, role, isVerified, err := s.authRepo.GetUserByEmail(email)
+	id, name, hashed, role, verified, err := s.repo.GetUserByEmail(email)
 	if err != nil {
 		return 0, "", "", "", false, err
 	}
 
-	// パスワード検証
-	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-	if err != nil {
+	// 受け取った平文のパスワードと、DBのハッシュ値を比較します
+	if err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password)); err != nil {
 		return 0, "", "", "", false, errors.New("invalid credentials")
 	}
 
-	return userID, userName, email, role, isVerified, nil
+	return id, name, email, role, verified, nil
 }
