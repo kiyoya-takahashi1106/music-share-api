@@ -13,9 +13,7 @@ type roomService struct {
 }
 
 func NewRoomService(roomRepository repositories.RoomRepository) RoomService {
-	return &roomService{
-		roomRepository: roomRepository,
-	}
+	return &roomService{roomRepository: roomRepository}
 }
 
 func (s *roomService) CreateRoom(input repositories.RoomCreateInput) (int, error) {

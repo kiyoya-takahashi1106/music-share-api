@@ -48,7 +48,7 @@ func main() {
 	roomsService := services.NewRoomsService(roomsRepository)
 	roomsController := controllers.NewRoomsController(roomsService)
 
-	// ルーム作成用のセットアップ
+	// room作成用のセットアップ
 	roomRepository := repositories.NewRoomRepository(db.DB)
 	roomService := services.NewRoomService(roomRepository)
 	roomController := controllers.NewRoomController(roomService)

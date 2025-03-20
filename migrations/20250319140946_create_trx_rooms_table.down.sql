@@ -3,7 +3,6 @@ CREATE TABLE trx_rooms (
     room_name VARCHAR(255) NOT NULL,
     is_public BOOLEAN NOT NULL,
     room_password VARCHAR(255),
-    title VARCHAR(255),
     genre VARCHAR(255),
     max_participants INT NOT NULL DEFAULT 10,
     now_participants INT NOT NULL DEFAULT 1,
