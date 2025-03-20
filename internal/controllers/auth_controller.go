@@ -6,6 +6,7 @@ import (
 	"music-share-api/internal/services"
 
 	"github.com/gin-gonic/gin"
+	"fmt"
 )
 
 type AuthController struct {
@@ -25,6 +26,8 @@ func (ctrl *AuthController) SignUp(c *gin.Context) {
 		Email    string `json:"email"`
 		Password string `json:"password"` // ハッシュ化前の平文パスワード
 	}
+	fmt.Printf("%+v\n", requestBody)
+
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid input"})
 		return
@@ -49,6 +52,8 @@ func (ctrl *AuthController) SignUp(c *gin.Context) {
 	})
 }
 
+
+
 // SignIn ログイン処理
 func (ctrl *AuthController) SignIn(c *gin.Context) {
 	var requestBody struct {
@@ -60,10 +65,7 @@ func (ctrl *AuthController) SignIn(c *gin.Context) {
 		return
 	}
 
-	userID, userName, email, role, isVerified, err := ctrl.authService.LoginUser(
-		requestBody.Email,
-		requestBody.Password,
-	)
+	userID, userName, email, role, isVerified, err := ctrl.authService.LoginUser(requestBody.Email, requestBody.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Invalid credentials"})
 		return
