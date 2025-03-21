@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
@@ -39,6 +40,13 @@ func main() {
 	}
 	defer db.Close()
 
+	// Redisクライアントを初期化
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379", // Redisサーバーのアドレス (環境に合わせて変更)
+		Password: "",               // パスワード (必要であれば)
+		DB:       0,                // デフォルトのDB
+	})
+
 	// リポジトリ、サービス、コントローラのセットアップ
 	authRepository := repositories.NewAuthRepository(db.DB)
 	authService := services.NewAuthService(authRepository)
@@ -48,8 +56,8 @@ func main() {
 	roomsService := services.NewRoomsService(roomsRepository)
 	roomsController := controllers.NewRoomsController(roomsService)
 
-	// room作成用のセットアップ
-	roomRepository := repositories.NewRoomRepository(db.DB)
+	// room作成用のセットアップ (Redisクライアントを追加)
+	roomRepository := repositories.NewRoomRepository(db.DB, redisClient)
 	roomService := services.NewRoomService(roomRepository)
 	roomController := controllers.NewRoomController(roomService)
 

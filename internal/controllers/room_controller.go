@@ -3,6 +3,7 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"music-share-api/internal/repositories"
 	"music-share-api/internal/services"
@@ -28,9 +29,9 @@ type CreateRoomRequest struct {
 	MaxParticipants     int     `json:"max_participants" binding:"required"`
 	HostUserID          int     `json:"host_user_id" binding:"required"`
 	HostUserName        string  `json:"host_user_name" binding:"required"`
-	PlayingPlaylistID   string     `json:"playing_playlist_id"` // 入力は受け取るがDBには保存しない例
+	PlayingPlaylistID   string  `json:"playing_playlist_id"`
 	PlayingPlaylistName string  `json:"playing_playlist_name"`
-	PlayingSongID       string     `json:"playing_song_id"` // 入力は受け取るがDBには保存しない例
+	PlayingSongID       string  `json:"playing_song_id"`
 	PlayingSongName     string  `json:"playing_song_name"`
 }
 
@@ -47,7 +48,7 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 
 	log.Printf("CreateRoomRequest: %+v", req)
 
-	// DBへは playlist_id, song_id 以外の必要な項目を保存する
+	// DBとRedisの両方に保存するためのInput
 	input := repositories.RoomCreateInput{
 		RoomName:            req.RoomName,
 		IsPublic:            req.IsPublic,
@@ -57,10 +58,13 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 		HostUserID:          req.HostUserID,
 		HostUserName:        req.HostUserName,
 		PlayingPlaylistName: req.PlayingPlaylistName,
+		PlayingPlaylistID:   req.PlayingPlaylistID, // Redis用
 		PlayingSongName:     req.PlayingSongName,
+		PlayingSongID:       req.PlayingSongID, // Redis用
 	}
 
-	roomID, err := ctrl.roomService.CreateRoom(input)
+	// MySQL と Redis の両方に保存
+	roomID, redisData, err := ctrl.roomService.CreateRoom(input)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "error",
@@ -69,7 +73,7 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 		return
 	}
 
-	// 出力例：　hostはネストしたJSONオブジェクトとして返す
+	// 要件に合わせたレスポンス形式
 	c.JSON(http.StatusOK, gin.H{
 		"status":           "success",
 		"message":          "Room successfully created",
@@ -83,5 +87,14 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 			"host_id":   req.HostUserID,
 			"host_name": req.HostUserName,
 		},
+		"playing_playlist_name": req.PlayingPlaylistName,
+    	"playing_song_name":     req.PlayingSongName,
+		"created_at":           time.Now().Format(time.RFC3339),
+		// Redisからのデータを追加
+		"room_status":      redisData.RoomStatus,
+		"playing_playlist_id": redisData.PlaylistID,
+		"playing_song_id":     redisData.SongID,
+		"update_song_at":      redisData.UpdateSongAt,
+		"participants":      redisData.Participants,
 	})
 }

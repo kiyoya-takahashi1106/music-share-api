@@ -5,7 +5,7 @@ import (
 )
 
 type RoomService interface {
-	CreateRoom(input repositories.RoomCreateInput) (int, error)
+	CreateRoom(input repositories.RoomCreateInput) (int, *repositories.RedisRoomData, error)
 }
 
 type roomService struct {
@@ -16,6 +16,6 @@ func NewRoomService(roomRepository repositories.RoomRepository) RoomService {
 	return &roomService{roomRepository: roomRepository}
 }
 
-func (s *roomService) CreateRoom(input repositories.RoomCreateInput) (int, error) {
+func (s *roomService) CreateRoom(input repositories.RoomCreateInput) (int, *repositories.RedisRoomData, error) {
 	return s.roomRepository.CreateRoom(input)
 }
