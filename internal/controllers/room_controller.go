@@ -3,6 +3,7 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"music-share-api/internal/repositories"
@@ -22,22 +23,27 @@ func NewRoomController(roomService services.RoomService) *RoomController {
 }
 
 type CreateRoomRequest struct {
-	RoomName            string  `json:"room_name" binding:"required"`
-	IsPublic            bool    `json:"is_public" binding:"required"`
-	RoomPassword        *string `json:"room_password"` // null許容
+	RoomName            string  `json:"roomName" binding:"required"`
+	IsPublic            bool    `json:"isPublic" binding:"required"`
+	RoomPassword        *string `json:"roomPassword"` // null許容
 	Genre               string  `json:"genre"`
-	MaxParticipants     int     `json:"max_participants" binding:"required"`
-	HostUserID          int     `json:"host_user_id" binding:"required"`
-	HostUserName        string  `json:"host_user_name" binding:"required"`
-	PlayingPlaylistID   string  `json:"playing_playlist_id"`
-	PlayingPlaylistName string  `json:"playing_playlist_name"`
-	PlayingSongID       string  `json:"playing_song_id"`
-	PlayingSongName     string  `json:"playing_song_name"`
+	MaxParticipants     int     `json:"maxParticipants" binding:"required"`
+	HostUserID          int     `json:"hostUserId" binding:"required"`
+	HostUserName        string  `json:"hostUserName" binding:"required"`
+	PlayingPlaylistID   string  `json:"playingPlaylistId"`
+	PlayingPlaylistName string  `json:"playingPlaylistName"`
+	PlayingSongID       string  `json:"playingSongId"`
+	PlayingSongName     string  `json:"playingSongName"`
 }
 
 // CreateRoom 新規ルーム作成 API
 func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 	var req CreateRoomRequest
+
+	log.Printf("おおおおおおおおおおおおおおおお")
+	log.Printf("おおおおおおおおおおおおおおおお")
+	log.Printf("おおおおおおおおおおおおおおおお")
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
@@ -75,26 +81,137 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 
 	// 要件に合わせたレスポンス形式
 	c.JSON(http.StatusOK, gin.H{
-		"status":           "success",
-		"message":          "Room successfully created",
-		"room_id":          roomID,
-		"room_name":        req.RoomName,
-		"is_public":        req.IsPublic,
-		"genre":            req.Genre,
-		"max_participants": req.MaxParticipants,
-		"now_participants": 1, // 新規作成時は1（ルーム作成者）
+		"status":          "success",
+		"message":         "Room successfully created",
+		"roomId":          roomID,
+		"roomName":        req.RoomName,
+		"isPublic":        req.IsPublic,
+		"genre":           req.Genre,
+		"maxParticipants": req.MaxParticipants,
+		"nowParticipants": 1, // 新規作成時は1（ルーム作成者）
 		"host": gin.H{
-			"host_id":   req.HostUserID,
-			"host_name": req.HostUserName,
+			"hostId":   req.HostUserID,
+			"hostName": req.HostUserName,
 		},
-		"playing_playlist_name": req.PlayingPlaylistName,
-    	"playing_song_name":     req.PlayingSongName,
-		"created_at":           time.Now().Format(time.RFC3339),
+		"playingPlaylistName": req.PlayingPlaylistName,
+		"playingSongName":     req.PlayingSongName,
+		"createAt":            time.Now().Format(time.RFC3339),
 		// Redisからのデータを追加
-		"room_status":      redisData.RoomStatus,
-		"playing_playlist_id": redisData.PlaylistID,
-		"playing_song_id":     redisData.SongID,
-		"update_song_at":      redisData.UpdateSongAt,
+		"roomStatus":        redisData.RoomStatus,
+		"playingPlaylistId": redisData.PlaylistID,
+		"playingSongId":     redisData.SongID,
+		"updateSongAt":      redisData.UpdateSongAt,
 		"participants":      redisData.Participants,
+	})
+}
+
+// JoinRoomRequest は /room/join エンドポイントのリクエストを表します
+type JoinRoomRequest struct {
+	UserID       int     `json:"userId" binding:"required"`
+	UserName     string  `json:"userName" binding:"required"`
+	RoomID       int     `json:"roomId" binding:"required"`
+	RoomPassword *string `json:"roomPassword"`
+}
+
+// JoinRoom は /room/join エンドポイントを処理します
+func (ctrl *RoomController) JoinRoom(c *gin.Context) {
+	var req JoinRoomRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Invalid input",
+		})
+		return
+	}
+
+	log.Printf("JoinRoomRequest: %+v", req)
+
+	// サービスを呼び出してルームへの参加を処理
+	room, err := ctrl.roomService.JoinRoom(req.UserID, req.UserName, req.RoomID, req.RoomPassword)
+	if err != nil {
+		log.Printf("Failed to join room: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(), // サービスから返されたエラーメッセージをそのまま返す
+		})
+		return
+	}
+
+	// 成功した場合のレスポンス
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"message":             "Room successfully joined",
+		"roomId":              room.RoomID,
+		"roomName":            room.RoomName,
+		"isPublic":            room.IsPublic,
+		"genre":               room.Genre,
+		"maxParticipants":     room.MaxParticipants,
+		"nowParticipants":     room.NowParticipants,
+		"host":                gin.H{"hostId": room.HostUserID, "hostName": room.HostUserName},
+		"playingPlaylistName": room.PlayingPlaylistName,
+		"playingSongName":     room.PlayingSongName,
+		"roomStatus":          room.RedisData.RoomStatus,
+		"playingPlaylistId":   room.RedisData.PlaylistID,
+		"playingSongId":       room.RedisData.SongID,
+		"updateSongAt":        room.RedisData.UpdateSongAt,
+		"participants":        room.RedisData.Participants,
+	})
+}
+
+type LeaveRoomRequest struct {
+	UserID int `json:"userId" binding:"required"`
+	RoomID int `json:"roomId" binding:"required"`
+}
+
+func (ctrl *RoomController) LeaveRoom(c *gin.Context) {
+	var req LeaveRoomRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Invalid input",
+		})
+		return
+	}	
+
+	// サービスを呼び出してルームからの退出を処理
+	_, err := ctrl.roomService.LeaveRoom(req.UserID, req.RoomID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Leave",
+	})
+}
+
+// DeleteRoom はDELETEメソッドでルームを削除します。
+// URL例: DELETE /room/1
+func (ctrl *RoomController) DeleteRoom(c *gin.Context) {
+	roomIDStr := c.Param("roomId")
+	roomID, err := strconv.Atoi(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Invalid roomId",
+		})
+		return
+	}
+
+	if err := ctrl.roomService.DeleteRoom(roomID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Delete",
 	})
 }
