@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"music-share-api/internal/repositories"
 
 	"golang.org/x/crypto/bcrypt"
@@ -10,6 +11,7 @@ import (
 type AuthService interface {
 	RegisterUser(userName, email, password string) (int, string, string, error)
 	LoginUser(email, password string) (int, string, string, string, bool, error)
+	UpdateProfile(userID int, userName, email string) error
 }
 
 type authService struct {
@@ -49,4 +51,11 @@ func (s *authService) LoginUser(email, password string) (int, string, string, st
 	}
 
 	return id, name, email, role, verified, nil
+}
+
+func (s *authService) UpdateProfile(userID int, userName, email string) error {
+	if err := s.repo.UpdateUserProfile(userID, userName, email); err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+	return nil
 }

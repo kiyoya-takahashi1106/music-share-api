@@ -9,6 +9,7 @@ import (
 type AuthRepository interface {
 	CreateUser(userName, email, hashedPassword string) (int, error)
 	GetUserByEmail(email string) (int, string, string, string, bool, error)
+	UpdateUserProfile(userID int, userName, email string) error
 }
 
 type authRepository struct {
@@ -21,12 +22,12 @@ func NewAuthRepository(db *sql.DB) AuthRepository {
 
 func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int, error) {
 	// 既存のユーザーが存在するか確認
-    _, _, _, _, _, err := r.GetUserByEmail(email)
-    if err == nil {
-        // ユーザーが見つかった場合は既に登録されているのでエラーを返す
-        return 0, fmt.Errorf("user with email %s already exists", email)
-    }
-    
+	_, _, _, _, _, err := r.GetUserByEmail(email)
+	if err == nil {
+		// ユーザーが見つかった場合は既に登録されているのでエラーを返す
+		return 0, fmt.Errorf("user with email %s already exists", email)
+	}
+
 	query := `
         INSERT INTO trx_users 
         (user_name, email, hash_password, profile_image_url, role, is_verified)
@@ -67,4 +68,17 @@ func (r *authRepository) GetUserByEmail(email string) (int, string, string, stri
 	}
 
 	return userID, userName, hashedPassword, role, isVerified, nil
+}
+
+func (r *authRepository) UpdateUserProfile(userID int, userName, email string) error {
+	query := `
+        UPDATE trx_users
+        SET user_name = ?, email = ?
+        WHERE user_id = ?
+    `
+	_, err := r.DB.Exec(query, userName, email, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update user profile: %v", err)
+	}
+	return nil
 }

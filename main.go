@@ -79,6 +79,7 @@ func main() {
 	// auth
 	r.POST("/auth/sign-up", authController.SignUp)
 	r.POST("/auth/sign-in", authController.SignIn)
+	r.PUT("/auth/update-profile", authController.UpdateProfile)
 
 	// rooms
 	r.GET("/rooms/public", roomsController.GetPublicRooms)

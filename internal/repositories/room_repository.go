@@ -15,15 +15,14 @@ type RoomCreateInput struct {
 	RoomName            string
 	IsPublic            bool
 	RoomPassword        *string // null許容
-	Title               string
 	Genre               string
 	MaxParticipants     int
 	HostUserID          int
 	HostUserName        string
-	PlayingPlaylistName string
 	PlayingPlaylistID   string // Redis保存用に追加
-	PlayingSongName     string
+	PlayingPlaylistName string
 	PlayingSongID       string // Redis保存用に追加
+	PlayingSongName     string
 }
 
 // RedisRoomParticipant はRedis内の参加者情報を表します
@@ -60,8 +59,8 @@ type RoomAllInfo struct {
 }
 
 type RoomRepository interface {
-	CreateRoom(input RoomCreateInput) (int, *RedisRoomData, error)
-	JoinRoom(userID int, userName string, roomID int, roomPassword *string) (*RoomAllInfo, error)
+	CreateRoom(input RoomCreateInput) (int, error)
+	JoinRoom(userID int, userName string, roomID int, roomPassword *string) error
 	LeaveRoom(userID int, roomID int) (*RoomAllInfo, error)
 	DeleteRoom(roomID int) error
 	GetRoomByID(roomID int) (*RoomAllInfo, error)
@@ -79,7 +78,7 @@ func NewRoomRepository(db *sql.DB, redisClient *redis.Client) RoomRepository {
 	}
 }
 
-func (r *roomRepository) CreateRoom(input RoomCreateInput) (int, *RedisRoomData, error) {
+func (r *roomRepository) CreateRoom(input RoomCreateInput) (int, error) {
 	// MySQL にルーム情報を保存
 	query := `
         INSERT INTO trx_rooms 
@@ -99,12 +98,12 @@ func (r *roomRepository) CreateRoom(input RoomCreateInput) (int, *RedisRoomData,
 		input.PlayingSongName,
 	)
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to insert room: %v", err)
+		return 0, fmt.Errorf("failed to insert room: %v", err)
 	}
 
 	roomID, err := result.LastInsertId()
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to get room id: %v", err)
+		return 0, fmt.Errorf("failed to get room id: %v", err)
 	}
 
 	// Redis用のデータを作成
@@ -120,22 +119,22 @@ func (r *roomRepository) CreateRoom(input RoomCreateInput) (int, *RedisRoomData,
 	// Redisにデータを保存
 	ctx := context.Background()
 	key := fmt.Sprintf("room:%d", roomID)
-
 	redisJSON, err := json.Marshal(redisData)
 	if err != nil {
-		return int(roomID), nil, fmt.Errorf("failed to marshal Redis data: %v", err)
+		return int(roomID), fmt.Errorf("failed to marshal Redis data: %v", err)
 	}
 
 	err = r.RedisClient.Set(ctx, key, redisJSON, 0).Err() // 有効期限なし
 	if err != nil {
-		return int(roomID), nil, fmt.Errorf("failed to save to Redis: %v", err)
+		return int(roomID), fmt.Errorf("failed to save to Redis: %v", err)
 	}
 
-	return int(roomID), redisData, nil
+	return int(roomID), nil
 }
 
+
 // JoinRoom は、ユーザーをルームに参加させるロジックを実装します。
-func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomPassword *string) (*RoomAllInfo, error) {
+func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomPassword *string) error {
 	// 1. MySQLからルームの基本情報を取得
 	var room RoomAllInfo
 	query := `
@@ -148,12 +147,12 @@ func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomP
 		&room.HostUserID, &room.HostUserName, &room.PlayingPlaylistName, &room.PlayingSongName,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get room: %w", err)
+		return fmt.Errorf("failed to get room: %w", err)
 	}
 
 	// 2. 参加人数が上限に達していないか確認
 	if room.NowParticipants >= room.MaxParticipants {
-		return nil, fmt.Errorf("room is full")
+		return fmt.Errorf("room is full")
 	}
 
 	// 3. Redisからルームデータ（参加者リストなど）を取得
@@ -161,12 +160,12 @@ func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomP
 	key := fmt.Sprintf("room:%d", roomID)
 	val, err := r.RedisClient.Get(ctx, key).Result()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get room data from Redis: %w", err)
+		return fmt.Errorf("failed to get room data from Redis: %w", err)
 	}
 
 	var redisData RedisRoomData
 	if err = json.Unmarshal([]byte(val), &redisData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal Redis data: %w", err)
+		return fmt.Errorf("failed to unmarshal Redis data: %w", err)
 	}
 
 	// 4. 新しい参加者を追加（ユーザーIDは文字列に変換）
@@ -179,25 +178,21 @@ func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomP
 	// 5. 参加者追加後、Redisに更新されたデータを保存
 	updatedRedisJSON, err := json.Marshal(redisData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal updated Redis data: %w", err)
+		return fmt.Errorf("failed to marshal updated Redis data: %w", err)
 	}
 	if err = r.RedisClient.Set(ctx, key, updatedRedisJSON, 0).Err(); err != nil {
-		return nil, fmt.Errorf("failed to update room data in Redis: %w", err)
+		return fmt.Errorf("failed to update room data in Redis: %w", err)
 	}
 
 	// 6. MySQLの参加者数(now_participants)を更新
 	updateQuery := `UPDATE trx_rooms SET now_participants = now_participants + 1 WHERE room_id = ?`
 	if _, err = r.DB.Exec(updateQuery, roomID); err != nil {
-		return nil, fmt.Errorf("failed to update participants in MySQL: %w", err)
+		return fmt.Errorf("failed to update participants in MySQL: %w", err)
 	}
 
-	// 7. MySQLから取得したデータとRedisのデータを結合して返す
-	room.RedisData = redisData
-	// 更新後の参加者数は+1
-	room.NowParticipants = room.NowParticipants + 1
-
-	return &room, nil
+	return nil
 }
+
 
 // LeaveRoom は、ユーザーをルームから退出させるロジックを実装します。
 func (r *roomRepository) LeaveRoom(userID int, roomID int) (*RoomAllInfo, error) {
