@@ -88,6 +88,7 @@ func main() {
 	r.POST("/room/join", roomController.JoinRoom)
 	r.POST("/room/leave", roomController.LeaveRoom)
 	r.DELETE("/room/delete/:roomId", roomController.DeleteRoom)
+	r.GET("/room/:roomId", roomController.GetRoom)
 
 	// サーバー起動
 	r.Run(":8080")

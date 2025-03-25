@@ -40,10 +40,6 @@ type CreateRoomRequest struct {
 func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 	var req CreateRoomRequest
 
-	log.Printf("おおおおおおおおおおおおおおおお")
-	log.Printf("おおおおおおおおおおおおおおおお")
-	log.Printf("おおおおおおおおおおおおおおおお")
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
@@ -171,7 +167,7 @@ func (ctrl *RoomController) LeaveRoom(c *gin.Context) {
 			"message": "Invalid input",
 		})
 		return
-	}	
+	}
 
 	// サービスを呼び出してルームからの退出を処理
 	_, err := ctrl.roomService.LeaveRoom(req.UserID, req.RoomID)
@@ -213,5 +209,42 @@ func (ctrl *RoomController) DeleteRoom(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Delete",
+	})
+}
+
+func (ctrl *RoomController) GetRoom(c *gin.Context) {
+	roomIDStr := c.Param("roomId")
+	roomID, err := strconv.Atoi(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Invalid roomId",
+		})
+		return
+	}
+
+	room, err := ctrl.roomService.GetRoom(roomID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// 詳細な部屋情報を返す（Create/Joinと同じJSON形式）
+	c.JSON(http.StatusOK, gin.H{
+		"status":              "success",
+		"message":             "Room successfully retrieved",
+		"roomId":              room.RoomID,
+		"roomName":            room.RoomName,
+		"isPublic":            room.IsPublic,
+		"genre":               room.Genre,
+		"maxParticipants":     room.MaxParticipants,
+		"nowParticipants":     room.NowParticipants,
+		"host":                gin.H{"hostId": room.HostUserID, "hostName": room.HostUserName},
+		"playingPlaylistName": room.PlayingPlaylistName,
+		"playingSongName":     room.PlayingSongName,
+		"redisData":           room.RedisData,
 	})
 }

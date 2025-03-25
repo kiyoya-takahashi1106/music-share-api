@@ -64,6 +64,7 @@ type RoomRepository interface {
 	JoinRoom(userID int, userName string, roomID int, roomPassword *string) (*RoomAllInfo, error)
 	LeaveRoom(userID int, roomID int) (*RoomAllInfo, error)
 	DeleteRoom(roomID int) error
+	GetRoomByID(roomID int) (*RoomAllInfo, error)
 }
 
 type roomRepository struct {
@@ -250,4 +251,39 @@ func (r *roomRepository) DeleteRoom(roomID int) error {
 		return fmt.Errorf("failed to delete room: %w", err)
 	}
 	return nil
+}
+
+// GetRoomByID はroomIDからMySQLとRedisの情報を統合して部屋の詳細情報を取得します。
+func (r *roomRepository) GetRoomByID(roomID int) (*RoomAllInfo, error) {
+	var room RoomAllInfo
+
+	// MySQLから部屋の詳細情報を取得
+	query := `
+        SELECT room_id, room_name, is_public, genre, playing_playlist_name, playing_song_name,
+               max_participants, now_participants, host_user_id, host_user_name, created_at
+        FROM trx_rooms 
+        WHERE room_id = ?`
+	err := r.DB.QueryRow(query, roomID).Scan(
+		&room.RoomID, &room.RoomName, &room.IsPublic, &room.Genre,
+		&room.PlayingPlaylistName, &room.PlayingSongName, &room.MaxParticipants,
+		&room.NowParticipants, &room.HostUserID, &room.HostUserName, &room.CreateAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get room from MySQL: %w", err)
+	}
+
+	// Redisから部屋データ（参加者リストなど）を取得
+	ctx := context.Background()
+	key := fmt.Sprintf("room:%d", roomID)
+	val, err := r.RedisClient.Get(ctx, key).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get room data from Redis: %w", err)
+	}
+	var redisData RedisRoomData
+	if err = json.Unmarshal([]byte(val), &redisData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Redis data: %w", err)
+	}
+
+	room.RedisData = redisData
+	return &room, nil
 }

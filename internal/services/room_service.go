@@ -10,6 +10,7 @@ type RoomService interface {
 	JoinRoom(userID int, userName string, roomID int, roomPassword *string) (*repositories.RoomAllInfo, error)
 	LeaveRoom(userID int, roomID int) (*repositories.RoomAllInfo, error)
 	DeleteRoom(roomID int) error
+	GetRoom(roomID int) (*repositories.RoomAllInfo, error)
 }
 
 type roomService struct {
@@ -45,4 +46,12 @@ func (s *roomService) DeleteRoom(roomID int) error {
 		return fmt.Errorf("failed to delete room: %w", err)
 	}
 	return nil
+}
+
+func (s *roomService) GetRoom(roomID int) (*repositories.RoomAllInfo, error) {
+	room, err := s.roomRepository.GetRoomByID(roomID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get room: %w", err)
+	}
+	return room, nil
 }
