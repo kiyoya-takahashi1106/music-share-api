@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	
 )
 
 type AuthRepository interface {
@@ -18,6 +19,10 @@ type authRepository struct {
 
 func NewAuthRepository(db *sql.DB) AuthRepository {
 	return &authRepository{DB: db}
+}
+
+func CreateSetCookie(userId string) {
+
 }
 
 func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int, error) {
@@ -45,8 +50,12 @@ func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int
 		return 0, fmt.Errorf("error getting last insert ID: %v", err)
 	}
 
+	// cookie
+	CreateSetCookie(userID)
+
 	return int(userID), nil
 }
+
 
 func (r *authRepository) GetUserByEmail(email string) (int, string, string, string, bool, error) {
 	var userID int
@@ -69,6 +78,7 @@ func (r *authRepository) GetUserByEmail(email string) (int, string, string, stri
 
 	return userID, userName, hashedPassword, role, isVerified, nil
 }
+
 
 func (r *authRepository) UpdateUserProfile(userID int, userName, email string) error {
 	query := `
