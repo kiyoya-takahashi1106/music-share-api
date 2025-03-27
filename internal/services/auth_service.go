@@ -9,6 +9,7 @@ import (
 )
 
 type AuthService interface {
+	GetUserInfo(userID int) (string, string, string, bool, error)
 	RegisterUser(userName, email, password string) (int, string, string, error)
 	LoginUser(email, password string) (int, string, string, string, bool, error)
 	UpdateProfile(userID int, userName, email string) error
@@ -21,6 +22,16 @@ type authService struct {
 func NewAuthService(r repositories.AuthRepository) AuthService {
 	return &authService{repo: r}
 }
+
+
+func (s *authService) GetUserInfo(userID int) (string, string, string, bool, error) {
+    userName, email, role, isVerified, err := s.repo.GetUserInfo(userID)
+    if err != nil {
+        return "", "", "", false, err
+    }
+    return userName, email, role, isVerified, nil
+}
+
 
 // RegisterUser 新規ユーザー登録
 func (s *authService) RegisterUser(userName, email, password string) (int, string, string, error) {

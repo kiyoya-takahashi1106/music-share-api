@@ -8,6 +8,7 @@ import (
 	"music-share-api/internal/controllers"
 	"music-share-api/internal/repositories"
 	"music-share-api/internal/services"
+	"music-share-api/internal/middlewares"
 
 	"time"
 
@@ -64,29 +65,30 @@ func main() {
 	// Ginルーター設定
 	r := gin.Default()
 
-	// CORSミドルウェアの追加
+	// CORS設定
 	r.Use(cors.New(cors.Config{
-		// AllowOrigins:     []string{"http://localhost:3000"},
-		AllowOrigins:  []string{"*"},
+		AllowOrigins:     []string{"http://localhost:3000"},
+		// AllowOrigins:  []string{"*"},
+		AllowCredentials: true,
 		AllowMethods:  []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:  []string{"Origin", "Content-Type", "Accept"},
-		ExposeHeaders: []string{"Content-Length"},
-		// AllowCredentials: true,
+		AllowHeaders:  []string{"Origin", "Content-Type", "Accept", "Cookie", "Authorization", "Set-Cookie"},
+		ExposeHeaders: []string{"Content-Length", "Set-Cookie"},
 		MaxAge: 12 * time.Hour,
 	}))
 
-	// ルーティング
 	// auth
+	r.GET("/auth/user-info", middlewares.AuthMiddleware(), authController.GetUserInfo)	
 	r.POST("/auth/sign-up", authController.SignUp)
 	r.POST("/auth/sign-in", authController.SignIn)
+	r.DELETE("/auth/sign-out", authController.SignOut)
 	r.PUT("/auth/update-profile", authController.UpdateProfile)
 
 	// rooms
-	r.GET("/rooms/public", roomsController.GetPublicRooms)
+	r.GET("/rooms/public", middlewares.AuthMiddleware(), roomsController.GetPublicRooms)
 
-	// room作成
+	// room
 	r.POST("/room/create", roomController.CreateRoom)
-	r.POST("/room/join", roomController.JoinRoom)
+	r.POST("/room/join", middlewares.AuthMiddleware(), roomController.JoinRoom)
 	r.POST("/room/leave", roomController.LeaveRoom)
 	r.DELETE("/room/delete/:roomId", roomController.DeleteRoom)
 	r.GET("/room/:roomId", roomController.GetRoom)

@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"log"
+	// "log"
 	"net/http"
 	"strconv"
 
@@ -60,41 +60,56 @@ type JoinRoomRequest struct {
 	RoomID       int     `json:"roomId" binding:"required"`
 	RoomPassword *string `json:"roomPassword"`
 }
-
-// JoinRoom は /room/join エンドポイントを処理します
 func (ctrl *RoomController) JoinRoom(c *gin.Context) {
-	var req JoinRoomRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Invalid input",
-		})
-		return
-	}
+    var req JoinRoomRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "status":  "error",
+            "message": "Invalid input",
+        })
+        return
+    }
+	
+    // ミドルウェアでセットされた userID をコンテキストから取得
+    authUserID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{
+            "status":  "error",
+            "message": "Unauthorized",
+        })
+        return
+    }
+    userID, ok := authUserID.(int)
+    if !ok {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": "Failed to parse user ID",
+        })
+        return
+    }
 
-	// サービスを呼び出してルームへの参加を処理
-	err := ctrl.roomService.JoinRoom(req.UserID, req.UserName, req.RoomID, req.RoomPassword)
-	if err != nil {
-		log.Printf("Failed to join room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": err.Error(), // サービスから返されたエラーメッセージをそのまま返す
-		})
-		return	
-	}
+    // コンテキストのユーザーIDを利用してルーム参加処理を実施
+    err := ctrl.roomService.JoinRoom(userID, req.UserName, req.RoomID, req.RoomPassword)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "status":  "error",
+            "message": err.Error(),
+        })
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "Join",
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "Join",
+    })
 }
 
 
+// roomから退出する
 type LeaveRoomRequest struct {
 	UserID int `json:"userId" binding:"required"`
 	RoomID int `json:"roomId" binding:"required"`
 }
-
 func (ctrl *RoomController) LeaveRoom(c *gin.Context) {
 	var req LeaveRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -122,8 +137,7 @@ func (ctrl *RoomController) LeaveRoom(c *gin.Context) {
 }
 
 
-// DeleteRoom はDELETEメソッドでルームを削除します。
-// URL例: DELETE /room/1
+// ルームを削除する。
 func (ctrl *RoomController) DeleteRoom(c *gin.Context) {
 	roomIDStr := c.Param("roomId")
 	roomID, err := strconv.Atoi(roomIDStr)
@@ -150,6 +164,7 @@ func (ctrl *RoomController) DeleteRoom(c *gin.Context) {
 }
 
 
+// room情報を取得する
 func (ctrl *RoomController) GetRoom(c *gin.Context) {
 	roomIDStr := c.Param("roomId")
 	roomID, err := strconv.Atoi(roomIDStr)

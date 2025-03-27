@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	
 )
 
 type AuthRepository interface {
+	GetUserInfo(userID int) (string, string, string, bool, error)
 	CreateUser(userName, email, hashedPassword string) (int, error)
 	GetUserByEmail(email string) (int, string, string, string, bool, error)
 	UpdateUserProfile(userID int, userName, email string) error
@@ -24,6 +24,31 @@ func NewAuthRepository(db *sql.DB) AuthRepository {
 func CreateSetCookie(userId string) {
 
 }
+
+// userIDからuser情報取得
+func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, error) {
+    var userName, email, role string
+    var isVerified bool
+
+    query := `
+        SELECT user_name, email, role, is_verified
+        FROM trx_users
+        WHERE user_id = ?
+        LIMIT 1
+    `
+    err := r.DB.QueryRow(query, userID).Scan(&userName, &email, &role, &isVerified)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Printf("User not found for userID: %d", userID)
+            return "", "", "", false, fmt.Errorf("user not found")
+        }
+        log.Printf("Error retrieving user info for userID %d: %v", userID, err)
+        return "", "", "", false, fmt.Errorf("error retrieving user info: %w", err)
+    }
+
+    return userName, email, role, isVerified, nil
+}
+
 
 func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int, error) {
 	// 既存のユーザーが存在するか確認
@@ -49,9 +74,6 @@ func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int
 	if err != nil {
 		return 0, fmt.Errorf("error getting last insert ID: %v", err)
 	}
-
-	// cookie
-	CreateSetCookie(userID)
 
 	return int(userID), nil
 }
