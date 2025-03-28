@@ -5,7 +5,7 @@ CREATE TABLE trx_users (
     hash_password VARCHAR(255) NOT NULL,
     role ENUM('user', 'admin') DEFAULT 'user',
     profile_image_url VARCHAR(255),
-    is_verified BOOLEAN DEFAULT FALSE,
+    is_spotify BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL

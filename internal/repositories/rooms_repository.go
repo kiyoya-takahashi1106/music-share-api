@@ -1,39 +1,39 @@
 package repositories
 
 import (
-	"database/sql"
-	"fmt"
-	"time"
-	"log"
+    "database/sql"
+    "fmt"
+    "log"
+    "time"
 )
 
 // Room はルーム情報を表します
 type Room struct {
-	RoomID              int          `db:"room_id" json:"room_id"`
-	RoomName            string       `db:"room_name" json:"room_name"`
-	IsPublic            bool         `db:"is_public" json:"is_public"`
-	Genre               string       `db:"genre" json:"genre"`
-	PlayingPlaylistName string       `db:"playing_playlist_name" json:"playing_playlist_name"`
-	PlayingSongName     string       `db:"playing_song_name" json:"playing_song_name"`
-	MaxParticipants     int          `db:"max_participants" json:"max_participants"`
-	NowParticipants     int          `db:"now_participants" json:"now_participants"`
-	HostUserID          int          `db:"host_user_id" json:"host_user_id"`
-    HostUserName        string       `db:"host_user_name" json:"host_user_name"`
-	CreateAt            time.Time    `db:"created_at" json:"create_at"`
-	UpdateAt            time.Time    `db:"updated_at" json:"update_at"`
-	DeletedAt           sql.NullTime `db:"deleted_at" json:"deleted_at"`
+    RoomID              int          `db:"room_id" json:"roomId"`
+    RoomName            string       `db:"room_name" json:"roomName"`
+    IsPublic            bool         `db:"is_public" json:"isPublic"`
+    Genre               string       `db:"genre" json:"genre"`
+    PlayingPlaylistName string       `db:"playing_playlist_name" json:"playingPlaylistName"`
+    PlayingSongName     string       `db:"playing_song_name" json:"playingSongName"`
+    MaxParticipants     int          `db:"max_participants" json:"maxParticipants"`
+    NowParticipants     int          `db:"now_participants" json:"nowParticipants"`
+    HostUserID          int          `db:"host_user_id" json:"hostUserId"`
+    HostUserName        string       `db:"host_user_name" json:"hostUserName"`
+    CreateAt            time.Time    `db:"created_at" json:"createAt"`
+    UpdateAt            time.Time    `db:"updated_at" json:"updateAt"`
+    DeletedAt           sql.NullTime `db:"deleted_at" json:"deletedAt"`
 }
 
 type RoomsRepository interface {
-	GetPublicRooms() ([]Room, error)
+    GetPublicRooms() ([]Room, error)
 }
 
 type roomsRepository struct {
-	DB *sql.DB
+    DB *sql.DB
 }
 
 func NewRoomsRepository(db *sql.DB) RoomsRepository {
-	return &roomsRepository{DB: db}
+    return &roomsRepository{DB: db}
 }
 
 func (r *roomsRepository) GetPublicRooms() ([]Room, error) {
@@ -45,7 +45,7 @@ func (r *roomsRepository) GetPublicRooms() ([]Room, error) {
     `
     rows, err := r.DB.Query(query, true)
     if err != nil {
-        log.Printf("DB query error: %v", err)
+		log.Printf("DB query error: %v", err)
         return nil, fmt.Errorf("query error: %v", err)
     }
     defer rows.Close()

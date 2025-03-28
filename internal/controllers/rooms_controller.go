@@ -1,37 +1,36 @@
-// filepath: [rooms_controller.go](http://_vscodecontentref_/1)
 package controllers
 
 import (
-    "net/http"
+	"net/http"
 
-    "music-share-api/internal/services"
+	"music-share-api/internal/services"
 
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 type RoomsController struct {
-    roomsService services.RoomsService
+	roomsService services.RoomsService
 }
 
 func NewRoomsController(roomsService services.RoomsService) *RoomsController {
-    return &RoomsController{
-        roomsService: roomsService,
-    }
+	return &RoomsController{
+		roomsService: roomsService,
+	}
 }
 
 func (ctrl *RoomsController) GetPublicRooms(c *gin.Context) {
-    rooms, err := ctrl.roomsService.GetPublicRooms()
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "status":  "error",
-            "message": "Error fetching rooms",
-        })
-        return
-    }
+	rooms, err := ctrl.roomsService.GetPublicRooms()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Error fetching rooms",
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "status":  "success",
-        "message": "Rooms matching search criteria",
-        "rooms":   rooms,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Rooms matching search criteria",
+		"rooms":   rooms,
+	})
 }

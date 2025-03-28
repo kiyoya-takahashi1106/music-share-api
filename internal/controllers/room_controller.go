@@ -34,7 +34,6 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 		})
 		return
 	}
-	
 
 	roomID, err := ctrl.roomService.CreateRoom(req)
 	if err != nil {
@@ -60,7 +59,7 @@ type JoinRoomRequest struct {
 	RoomID       int     `json:"roomId" binding:"required"`
 	RoomPassword *string `json:"roomPassword"`
 }
-func (ctrl *RoomController) JoinRoom(c *gin.Context) {
+func (ctrl *RoomController) JoinRoom(c *gin.Context) {	
     var req JoinRoomRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{

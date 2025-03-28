@@ -27,26 +27,26 @@ func CreateSetCookie(userId string) {
 
 // userIDからuser情報取得
 func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, error) {
-    var userName, email, role string
-    var isVerified bool
+	var userName, email, role string
+	var isSpotify bool
 
-    query := `
-        SELECT user_name, email, role, is_verified
+	query := `
+        SELECT user_name, email, role, is_spotify
         FROM trx_users
         WHERE user_id = ?
         LIMIT 1
     `
-    err := r.DB.QueryRow(query, userID).Scan(&userName, &email, &role, &isVerified)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Printf("User not found for userID: %d", userID)
-            return "", "", "", false, fmt.Errorf("user not found")
-        }
-        log.Printf("Error retrieving user info for userID %d: %v", userID, err)
-        return "", "", "", false, fmt.Errorf("error retrieving user info: %w", err)
-    }
+	err := r.DB.QueryRow(query, userID).Scan(&userName, &email, &role, &isSpotify)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("User not found for userID: %d", userID)
+			return "", "", "", false, fmt.Errorf("user not found")
+		}
+		log.Printf("Error retrieving user info for userID %d: %v", userID, err)
+		return "", "", "", false, fmt.Errorf("error retrieving user info: %w", err)
+	}
 
-    return userName, email, role, isVerified, nil
+	return userName, email, role, isSpotify, nil
 }
 
 
@@ -60,7 +60,7 @@ func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int
 
 	query := `
         INSERT INTO trx_users 
-        (user_name, email, hash_password, profile_image_url, role, is_verified)
+        (user_name, email, hash_password, profile_image_url, role, is_spotify)
         VALUES (?, ?, ?, ?, ?, ?)
     `
 	// profile_image_url: 空文字、role: "user", is_verified: false を設定
@@ -82,15 +82,15 @@ func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int
 func (r *authRepository) GetUserByEmail(email string) (int, string, string, string, bool, error) {
 	var userID int
 	var userName, hashedPassword, role string
-	var isVerified bool
+	var isSpotify bool
 
 	query := `
-        SELECT user_id, user_name, hash_password, role, is_verified
+        SELECT user_id, user_name, hash_password, role, is_spotify
         FROM trx_users 
         WHERE email = ?
         LIMIT 1
     `
-	err := r.DB.QueryRow(query, email).Scan(&userID, &userName, &hashedPassword, &role, &isVerified)
+	err := r.DB.QueryRow(query, email).Scan(&userID, &userName, &hashedPassword, &role, &isSpotify)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, "", "", "", false, fmt.Errorf("user not found")
@@ -98,7 +98,7 @@ func (r *authRepository) GetUserByEmail(email string) (int, string, string, stri
 		return 0, "", "", "", false, fmt.Errorf("error retrieving user: %v", err)
 	}
 
-	return userID, userName, hashedPassword, role, isVerified, nil
+	return userID, userName, hashedPassword, role, isSpotify, nil
 }
 
 

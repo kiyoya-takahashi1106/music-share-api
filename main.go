@@ -83,6 +83,9 @@ func main() {
 	r.DELETE("/auth/sign-out", authController.SignOut)
 	r.PUT("/auth/update-profile", authController.UpdateProfile)
 
+	// spotify
+	// r.GET("/spotify/auth", .SpotifyAuth)
+
 	// rooms
 	r.GET("/rooms/public", middlewares.AuthMiddleware(), roomsController.GetPublicRooms)
 
