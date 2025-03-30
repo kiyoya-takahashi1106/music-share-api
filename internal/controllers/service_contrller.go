@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	"net/http"
+	"log"
 	"music-share-api/internal/services"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,8 +16,7 @@ func NewServiceController(spotifyService services.SpotifyService) *ServiceContro
 	return &ServiceController{spotifyService: spotifyService}
 }
 
-
-// SpotifyConnct 
+// SpotifyConnct
 func (ctrl *ServiceController) SpotifyConnct(c *gin.Context) {
 	var req struct {
 		UserID int    `json:"userId" binding:"required"`
@@ -35,5 +35,26 @@ func (ctrl *ServiceController) SpotifyConnct(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Spotify connected successfully",
+	})
+}
+
+func (ctrl *ServiceController) DisconnectSpotify(c *gin.Context) {
+	log.Println("DisconnectSpotify called")
+	var req struct {
+		UserID int `json:"userId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid input"})
+		return
+	}
+
+	if err := ctrl.spotifyService.DeleteSpotify(req.UserID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Account deleted successfully",
 	})
 }

@@ -10,6 +10,7 @@ import (
 // UserServiceData は１サービスの連携情報を表します。
 type UserServiceData struct {
 	ServiceUserID        string    `json:"serviceUserId"`
+	ServiceUserName      string    `json:"serviceUserName"` // 追加
 	EncryptedAccessToken string    `json:"encryptedAccessToken"`
 	ExpiresAt            time.Time `json:"expiresAt"`
 }
@@ -53,7 +54,7 @@ func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, 
 
 	// 連携サービス情報を取得（1ユーザーにつき各サービスは１件前提）
 	serviceQuery := `
-        SELECT service_name, service_user_id, encrypted_access_token, expires_at
+        SELECT service_name, service_user_id, service_user_name, encrypted_access_token, expires_at
         FROM trx_users_services
         WHERE user_id = ? AND deleted_at IS NULL
     `
@@ -67,7 +68,8 @@ func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, 
 	for rows.Next() {
 		var serviceName string
 		var data UserServiceData
-		if err := rows.Scan(&serviceName, &data.ServiceUserID, &data.EncryptedAccessToken, &data.ExpiresAt); err != nil {
+		// 変更：service_user_name も取得
+		if err := rows.Scan(&serviceName, &data.ServiceUserID, &data.ServiceUserName, &data.EncryptedAccessToken, &data.ExpiresAt); err != nil {
 			return "", "", "", false, nil, fmt.Errorf("failed to scan service row: %w", err)
 		}
 		services[serviceName] = data

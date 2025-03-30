@@ -16,6 +16,7 @@ import (
 
 type SpotifyService interface {
 	ConnectSpotify(userID int, code string) error
+	DeleteSpotify(userID int) error // 新規追加
 }
 
 type spotifyService struct {
@@ -35,13 +36,16 @@ type SpotifyTokenResponse struct {
 }
 
 // SpotifyUserProfile はSpotifyのユーザー情報レスポンスを表します。
+// ここで display_name を追加して、アカウント名を取得します。
 type SpotifyUserProfile struct {
-	ID string `json:"id"`
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
 	// 必要に応じて追加フィールドを定義可能
 }
 
 // ConnectSpotify は、Spotifyの認証コード(code)を使用して
-// 外部APIを呼び出し、アクセストークン、リフレッシュトークン、有効期限、SpotifyユーザーIDを取得しDBへ保存します。
+// 外部APIを呼び出し、アクセストークン、リフレッシュトークン、有効期限、
+// SpotifyユーザーIDおよびアカウント名を取得しDBへ保存します。
 func (s *spotifyService) ConnectSpotify(userID int, code string) error {
 	if code == "" {
 		return errors.New("code is empty")
@@ -62,7 +66,6 @@ func (s *spotifyService) ConnectSpotify(userID int, code string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create token request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	// Basic認証ヘッダーの設定
 	authStr := fmt.Sprintf("%s:%s", clientID, clientSecret)
@@ -87,6 +90,7 @@ func (s *spotifyService) ConnectSpotify(userID int, code string) error {
 		return fmt.Errorf("failed to decode token response: %w", err)
 	}
 
+	// Spotifyユーザー情報取得 (/v1/me)
 	userURL := "https://api.spotify.com/v1/me"
 	reqUser, err := http.NewRequest("GET", userURL, nil)
 	if err != nil {
@@ -114,14 +118,24 @@ func (s *spotifyService) ConnectSpotify(userID int, code string) error {
 	// 有効期限の計算
 	expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 
-	// 暗号化処理が必要な場合はここで実施
+	// 暗号化処理が必要な場合はここで実施（今回はそのまま）
 	encryptedAccessToken := tokenResp.AccessToken
 	encryptedRefreshToken := tokenResp.RefreshToken
 
 	// DBへ保存
-	if err := s.repo.InsertUserService(userID, "spotify", userProfile.ID, encryptedAccessToken, encryptedRefreshToken, expiresAt); err != nil {
+	// InsertUserService の第4引数として Spotify のアカウント名 (DisplayName) を渡す
+	if err := s.repo.InsertUserService(userID, "spotify", userProfile.ID, userProfile.DisplayName, encryptedAccessToken, encryptedRefreshToken, expiresAt); err != nil {
 		return fmt.Errorf("failed to insert spotify service data: %w", err)
 	}
 
+	return nil
+}
+
+// DeleteSpotify は、Spotifyのサービスデータを削除します。
+func (s *spotifyService) DeleteSpotify(userID int) error {
+	// "spotify" を指定してレコードを削除
+	if err := s.repo.DeleteUserService(userID, "spotify"); err != nil {
+		return fmt.Errorf("failed to delete spotify service data: %w", err)
+	}
 	return nil
 }

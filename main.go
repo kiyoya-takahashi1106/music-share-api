@@ -89,6 +89,7 @@ func main() {
 
 	// Spotify
 	r.POST("/spotify/connect", serviceController.SpotifyConnct)
+	r.DELETE("/spotify/disconnect", serviceController.DisconnectSpotify)
 
 	// rooms
 	r.GET("/rooms/public", middlewares.AuthMiddleware(), roomsController.GetPublicRooms)
