@@ -6,7 +6,8 @@ import (
 )
 
 type AuthService interface {
-	GetUserInfo(userID int) (string, string, string, bool, error)
+	// 新規：ユーザー基本情報と連携サービス情報を返す
+	GetUserInfo(userID int) (string, string, string, bool, map[string]repositories.UserServiceData, error)
 	RegisterUser(userName, email, hashPassword string) (int, string, string, error)
 	LoginUser(email, hashPassword string) (int, string, string, string, bool, error)
 	UpdateProfile(userID int, userName, email string) error
@@ -20,10 +21,9 @@ func NewAuthService(r repositories.AuthRepository) AuthService {
 	return &authService{repo: r}
 }
 
-func (s *authService) GetUserInfo(userID int) (string, string, string, bool, error) {
+func (s *authService) GetUserInfo(userID int) (string, string, string, bool, map[string]repositories.UserServiceData, error) {
 	return s.repo.GetUserInfo(userID)
 }
-
 
 // RegisterUser：パスワードは既にハッシュ化されている前提
 func (s *authService) RegisterUser(userName, email, hashPassword string) (int, string, string, error) {
@@ -33,7 +33,6 @@ func (s *authService) RegisterUser(userName, email, hashPassword string) (int, s
 	}
 	return id, userName, email, nil
 }
-
 
 // LoginUser：受け取ったhashPasswordとDBのものを直接比較
 func (s *authService) LoginUser(email, hashPassword string) (int, string, string, string, bool, error) {
@@ -46,7 +45,6 @@ func (s *authService) LoginUser(email, hashPassword string) (int, string, string
 	}
 	return id, name, email, role, isSpotify, nil
 }
-
 
 func (s *authService) UpdateProfile(userID int, userName, email string) error {
 	return s.repo.UpdateUserProfile(userID, userName, email)

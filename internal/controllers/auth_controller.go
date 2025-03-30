@@ -21,9 +21,10 @@ func NewAuthController(authService services.AuthService) *AuthController {
 }
 
 // GET /auth/user-info
-// フロントからはCookieでユーザーIDを取得し、DBの情報と固定のservicesオブジェクトを返す
+// ミドルウェアでセットされたユーザーIDをもとに、
+// trx_usersの基本情報と trx_users_servicesから各サービス情報（例: spotify, amazon, apple）を取得して統合したJSONで返す
 func (ctrl *AuthController) GetUserInfo(c *gin.Context) {
-	// ミドルウェアでセットされたユーザーIDを取得
+	// Cookieなどでセットされた userID を取得
 	authUserID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -41,14 +42,16 @@ func (ctrl *AuthController) GetUserInfo(c *gin.Context) {
 		return
 	}
 
-	// サービスからユーザー情報を取得
-	userName, email, role, isSpotify, err := ctrl.authService.GetUserInfo(userID)
+	// ユーザー基本情報の取得
+	userName, email, role, isSpotify, userServices, err := ctrl.authService.GetUserInfo(userID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Invalid credentials"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "Invalid credentials",
+		})
 		return
 	}
 
-	// 要件に合わせた固定のservices情報を付与して返す
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "success",
 		"message":   "User registered successfully",
@@ -57,16 +60,9 @@ func (ctrl *AuthController) GetUserInfo(c *gin.Context) {
 		"email":     email,
 		"role":      role,
 		"isSpotify": isSpotify,
-		"services": gin.H{
-			"spotify": gin.H{
-				"serviceUserId":        "fgthrytjyhrgafegthryj",
-				"encryptedAccessToken": "dwfagehjtythgrefe",
-				"expiresAt":            false,
-			},
-		},
+		"services":  userServices,
 	})
 }
-
 
 // POST /auth/sign-up
 // 新規ユーザー登録（フロントからは userName, email, hashPassword を受ける）
@@ -78,7 +74,7 @@ func (ctrl *AuthController) SignUp(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid input"})
-		return
+
 	}
 
 	// 登録処理（ここでは既にハッシュ化されたパスワードを使用）
@@ -115,7 +111,6 @@ func (ctrl *AuthController) SignUp(c *gin.Context) {
 		},
 	})
 }
-
 
 // POST /auth/sign-in
 // ログイン処理（フロントからは email と hashPassword を受ける）
@@ -165,7 +160,6 @@ func (ctrl *AuthController) SignIn(c *gin.Context) {
 	})
 }
 
-
 // PUT /auth/update-profile
 // プロファイル更新（※要件に合わせ、返すJSONは固定値とする）
 func (ctrl *AuthController) UpdateProfile(c *gin.Context) {
@@ -196,7 +190,6 @@ func (ctrl *AuthController) UpdateProfile(c *gin.Context) {
 		"message": "Account deleted successfully",
 	})
 }
-
 
 // POST /auth/sign-out
 // ログアウト処理

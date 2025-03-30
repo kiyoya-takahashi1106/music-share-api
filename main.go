@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"music-share-api/internal/controllers"
+	"music-share-api/internal/middlewares"
 	"music-share-api/internal/repositories"
 	"music-share-api/internal/services"
-	"music-share-api/internal/middlewares"
 
 	"time"
 
@@ -62,29 +62,33 @@ func main() {
 	roomService := services.NewRoomService(roomRepository)
 	roomController := controllers.NewRoomController(roomService)
 
+	// Spotify serviceのセットアップ
+	serviceRepository := repositories.NewServiceRepository(db.DB)
+	spotifyService := services.NewSpotifyService(serviceRepository)
+	serviceController := controllers.NewServiceController(spotifyService)
+
 	// Ginルーター設定
 	r := gin.Default()
 
 	// CORS設定
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
-		// AllowOrigins:  []string{"*"},
 		AllowCredentials: true,
-		AllowMethods:  []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:  []string{"Origin", "Content-Type", "Accept", "Cookie", "Authorization", "Set-Cookie"},
-		ExposeHeaders: []string{"Content-Length", "Set-Cookie"},
-		MaxAge: 12 * time.Hour,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Cookie", "Authorization", "Set-Cookie"},
+		ExposeHeaders:    []string{"Content-Length", "Set-Cookie"},
+		MaxAge:           12 * time.Hour,
 	}))
 
 	// auth
-	r.GET("/auth/user-info", middlewares.AuthMiddleware(), authController.GetUserInfo)	
+	r.GET("/auth/user-info", middlewares.AuthMiddleware(), authController.GetUserInfo)
 	r.POST("/auth/sign-up", authController.SignUp)
 	r.POST("/auth/sign-in", authController.SignIn)
 	r.DELETE("/auth/sign-out", authController.SignOut)
 	r.PUT("/auth/update-profile", authController.UpdateProfile)
 
-	// spotify
-	// r.GET("/spotify/auth", .SpotifyAuth)
+	// Spotify
+	r.POST("/spotify/connect", serviceController.SpotifyConnct)
 
 	// rooms
 	r.GET("/rooms/public", middlewares.AuthMiddleware(), roomsController.GetPublicRooms)

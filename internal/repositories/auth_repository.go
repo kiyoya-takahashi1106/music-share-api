@@ -4,10 +4,19 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 )
 
+// UserServiceData は１サービスの連携情報を表します。
+type UserServiceData struct {
+	ServiceUserID        string    `json:"serviceUserId"`
+	EncryptedAccessToken string    `json:"encryptedAccessToken"`
+	ExpiresAt            time.Time `json:"expiresAt"`
+}
+
 type AuthRepository interface {
-	GetUserInfo(userID int) (string, string, string, bool, error)
+	// GetUserInfo は、ユーザー基本情報と連携サービス情報を返します。
+	GetUserInfo(userID int) (string, string, string, bool, map[string]UserServiceData, error)
 	CreateUser(userName, email, hashedPassword string) (int, error)
 	GetUserByEmail(email string) (int, string, string, string, bool, error)
 	UpdateUserProfile(userID int, userName, email string) error
@@ -21,12 +30,8 @@ func NewAuthRepository(db *sql.DB) AuthRepository {
 	return &authRepository{DB: db}
 }
 
-func CreateSetCookie(userId string) {
-
-}
-
-// userIDからuser情報取得
-func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, error) {
+// userIDからユーザー基本情報と連携サービス情報を取得
+func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, map[string]UserServiceData, error) {
 	var userName, email, role string
 	var isSpotify bool
 
@@ -40,15 +45,35 @@ func (r *authRepository) GetUserInfo(userID int) (string, string, string, bool, 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("User not found for userID: %d", userID)
-			return "", "", "", false, fmt.Errorf("user not found")
+			return "", "", "", false, nil, fmt.Errorf("user not found")
 		}
 		log.Printf("Error retrieving user info for userID %d: %v", userID, err)
-		return "", "", "", false, fmt.Errorf("error retrieving user info: %w", err)
+		return "", "", "", false, nil, fmt.Errorf("error retrieving user info: %w", err)
 	}
 
-	return userName, email, role, isSpotify, nil
-}
+	// 連携サービス情報を取得（1ユーザーにつき各サービスは１件前提）
+	serviceQuery := `
+        SELECT service_name, service_user_id, encrypted_access_token, expires_at
+        FROM trx_users_services
+        WHERE user_id = ? AND deleted_at IS NULL
+    `
+	rows, err := r.DB.Query(serviceQuery, userID)
+	if err != nil {
+		return "", "", "", false, nil, fmt.Errorf("failed to query user services: %w", err)
+	}
+	defer rows.Close()
 
+	services := make(map[string]UserServiceData)
+	for rows.Next() {
+		var serviceName string
+		var data UserServiceData
+		if err := rows.Scan(&serviceName, &data.ServiceUserID, &data.EncryptedAccessToken, &data.ExpiresAt); err != nil {
+			return "", "", "", false, nil, fmt.Errorf("failed to scan service row: %w", err)
+		}
+		services[serviceName] = data
+	}
+	return userName, email, role, isSpotify, services, nil
+}
 
 func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int, error) {
 	// 既存のユーザーが存在するか確認
@@ -78,7 +103,6 @@ func (r *authRepository) CreateUser(userName, email, hashedPassword string) (int
 	return int(userID), nil
 }
 
-
 func (r *authRepository) GetUserByEmail(email string) (int, string, string, string, bool, error) {
 	var userID int
 	var userName, hashedPassword, role string
@@ -100,7 +124,6 @@ func (r *authRepository) GetUserByEmail(email string) (int, string, string, stri
 
 	return userID, userName, hashedPassword, role, isSpotify, nil
 }
-
 
 func (r *authRepository) UpdateUserProfile(userID int, userName, email string) error {
 	query := `
