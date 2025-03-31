@@ -88,8 +88,9 @@ func main() {
 	r.PUT("/auth/update-profile", authController.UpdateProfile)
 
 	// Spotify
-	r.POST("/spotify/connect", serviceController.SpotifyConnct)
+	r.POST("/spotify/connect", serviceController.SpotifyConnect)
 	r.DELETE("/spotify/disconnect", serviceController.DisconnectSpotify)
+	r.POST("/spotify/refresh-token", serviceController.RefreshSpotifyToken)
 
 	// rooms
 	r.GET("/rooms/public", middlewares.AuthMiddleware(), roomsController.GetPublicRooms)

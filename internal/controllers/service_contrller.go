@@ -17,7 +17,7 @@ func NewServiceController(spotifyService services.SpotifyService) *ServiceContro
 }
 
 // SpotifyConnct
-func (ctrl *ServiceController) SpotifyConnct(c *gin.Context) {
+func (ctrl *ServiceController) SpotifyConnect(c *gin.Context) {
 	var req struct {
 		UserID int    `json:"userId" binding:"required"`
 		Code   string `json:"code" binding:"required"`
@@ -56,5 +56,32 @@ func (ctrl *ServiceController) DisconnectSpotify(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Account deleted successfully",
+	})
+}
+
+// RefreshSpotifyToken
+func (ctrl *ServiceController) RefreshSpotifyToken(c *gin.Context) {
+	var req struct {
+		UserID int `json:"userId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid input"})
+		return
+	}
+
+	encryptedAccessToken, newExpiresAt, err := ctrl.spotifyService.RefreshSpotifyToken(req.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
+		return
+	}
+
+	// ここでは Format("2006-01-02T15:04:05Z") でISO8601風に変換
+	formattedExpiresAt := newExpiresAt.Format("2006-01-02T15:04:05Z")
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":               "success",
+		"message":              "Token refresh successfully",
+		"encryptedAccessToken": encryptedAccessToken,
+		"expiresAt":            formattedExpiresAt,
 	})
 }
