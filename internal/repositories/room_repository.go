@@ -10,19 +10,27 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// RoomCreateInput はルーム作成時の入力データを表します
 type RoomCreateInput struct {
-	RoomName            string
-	IsPublic            bool
-	RoomPassword        *string // null許容
-	Genre               string
-	MaxParticipants     int
-	HostUserID          int
-	HostUserName        string
-	PlayingPlaylistID   string // Redis保存用に追加
-	PlayingPlaylistName string
-	PlayingSongID       string // Redis保存用に追加
-	PlayingSongName     string
+	RoomName            string          `json:"roomName"`
+	IsPublic            bool            `json:"isPublic"`
+	RoomPassword        *string         `json:"roomPassword"`
+	Genre               string          `json:"genre"`
+	MaxParticipants     int             `json:"maxParticipants"`
+	HostUserID          int             `json:"hostUserId"`
+	HostUserName        string          `json:"hostUserName"`
+	PlayingPlaylistID   string          `json:"playingPlaylistId"`
+	PlayingPlaylistName string          `json:"playingPlaylistName"`
+	PlayingSongID       string          `json:"playingSongId"`
+	PlayingSongName     string          `json:"playingSongName"`
+	Songs               map[string]Song `json:"songs"`
+}
+
+type Song struct {
+	SongId       string `json:"songId"`
+	SongName     string `json:"songName"`
+	Artist       string `json:"artist"`
+	SongLength   int    `json:"songLength"`
+	SongImageUrl string `json:"songImageUrl"`
 }
 
 // RedisRoomParticipant はRedis内の参加者情報を表します
@@ -129,9 +137,31 @@ func (r *roomRepository) CreateRoom(input RoomCreateInput) (int, error) {
 		return int(roomID), fmt.Errorf("failed to save to Redis: %v", err)
 	}
 
+	fmt.Println("fgeshrdhrrethr")
+
+	// trx_rooms_songs に songs を挿入
+	for idx, song := range input.Songs {
+		insertSongQuery := `
+            INSERT INTO trx_rooms_songs
+            (room_id, song_index, song_id, song_name, artist, song_length, song_image_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `
+		if _, err := r.DB.Exec(insertSongQuery,
+			roomID,
+			idx, // songs のキー (何番目か)
+			song.SongId,
+			song.SongName,
+			song.Artist,
+			song.SongLength, // DB で timestamp 型の場合は必要に応じて変換
+			song.SongImageUrl,
+		); err != nil {
+			fmt.Println(err)
+			return int(roomID), fmt.Errorf("failed to insert room song: %v", err)
+		}
+	}
+
 	return int(roomID), nil
 }
-
 
 // JoinRoom は、ユーザーをルームに参加させるロジックを実装します。
 func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomPassword *string) error {
@@ -192,7 +222,6 @@ func (r *roomRepository) JoinRoom(userID int, userName string, roomID int, roomP
 
 	return nil
 }
-
 
 // LeaveRoom は、ユーザーをルームから退出させるロジックを実装します。
 func (r *roomRepository) LeaveRoom(userID int, roomID int) (*RoomAllInfo, error) {

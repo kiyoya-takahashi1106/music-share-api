@@ -26,7 +26,6 @@ type CreateRoomRequest = repositories.RoomCreateInput
 
 func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 	var req CreateRoomRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
@@ -51,7 +50,6 @@ func (ctrl *RoomController) CreateRoom(c *gin.Context) {
 	})
 }
 
-
 // JoinRoomRequest は /room/join エンドポイントのリクエストを表します
 type JoinRoomRequest struct {
 	UserID       int     `json:"userId" binding:"required"`
@@ -59,56 +57,57 @@ type JoinRoomRequest struct {
 	RoomID       int     `json:"roomId" binding:"required"`
 	RoomPassword *string `json:"roomPassword"`
 }
-func (ctrl *RoomController) JoinRoom(c *gin.Context) {	
-    var req JoinRoomRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{
-            "status":  "error",
-            "message": "Invalid input",
-        })
-        return
-    }
-	
-    // ミドルウェアでセットされた userID をコンテキストから取得
-    authUserID, exists := c.Get("userID")
-    if !exists {
-        c.JSON(http.StatusUnauthorized, gin.H{
-            "status":  "error",
-            "message": "Unauthorized",
-        })
-        return
-    }
-    userID, ok := authUserID.(int)
-    if !ok {
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "status":  "error",
-            "message": "Failed to parse user ID",
-        })
-        return
-    }
 
-    // コンテキストのユーザーIDを利用してルーム参加処理を実施
-    err := ctrl.roomService.JoinRoom(userID, req.UserName, req.RoomID, req.RoomPassword)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "status":  "error",
-            "message": err.Error(),
-        })
-        return
-    }
+func (ctrl *RoomController) JoinRoom(c *gin.Context) {
+	var req JoinRoomRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Invalid input",
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "status":  "success",
-        "message": "Join",
-    })
+	// ミドルウェアでセットされた userID をコンテキストから取得
+	authUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "error",
+			"message": "Unauthorized",
+		})
+		return
+	}
+	userID, ok := authUserID.(int)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Failed to parse user ID",
+		})
+		return
+	}
+
+	// コンテキストのユーザーIDを利用してルーム参加処理を実施
+	err := ctrl.roomService.JoinRoom(userID, req.UserName, req.RoomID, req.RoomPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Join",
+	})
 }
-
 
 // roomから退出する
 type LeaveRoomRequest struct {
 	UserID int `json:"userId" binding:"required"`
 	RoomID int `json:"roomId" binding:"required"`
 }
+
 func (ctrl *RoomController) LeaveRoom(c *gin.Context) {
 	var req LeaveRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -135,7 +134,6 @@ func (ctrl *RoomController) LeaveRoom(c *gin.Context) {
 	})
 }
 
-
 // ルームを削除する。
 func (ctrl *RoomController) DeleteRoom(c *gin.Context) {
 	roomIDStr := c.Param("roomId")
@@ -161,7 +159,6 @@ func (ctrl *RoomController) DeleteRoom(c *gin.Context) {
 		"message": "Delete",
 	})
 }
-
 
 // room情報を取得する
 func (ctrl *RoomController) GetRoom(c *gin.Context) {
@@ -198,10 +195,10 @@ func (ctrl *RoomController) GetRoom(c *gin.Context) {
 		"playingPlaylistName": room.PlayingPlaylistName,
 		"playingSongName":     room.PlayingSongName,
 		// Redis側の情報をフラットに展開
-        "roomStatus":        room.RedisData.RoomStatus,
-        "playingPlaylistId": room.RedisData.PlaylistID,
-        "playingSongId":     room.RedisData.SongID,
-        "updateSongAt":      room.RedisData.UpdateSongAt,
-        "participants":      room.RedisData.Participants,
+		"roomStatus":        room.RedisData.RoomStatus,
+		"playingPlaylistId": room.RedisData.PlaylistID,
+		"playingSongId":     room.RedisData.SongID,
+		"updateSongAt":      room.RedisData.UpdateSongAt,
+		"participants":      room.RedisData.Participants,
 	})
 }
