@@ -18,10 +18,9 @@ type RoomCreateInput struct {
 	MaxParticipants     int             `json:"maxParticipants"`
 	HostUserID          int             `json:"hostUserId"`
 	HostUserName        string          `json:"hostUserName"`
-	PlayingPlaylistID   string          `json:"playingPlaylistId"`
 	PlayingPlaylistName string          `json:"playingPlaylistName"`
-	PlayingSongID       string          `json:"playingSongId"`
 	PlayingSongName     string          `json:"playingSongName"`
+	PlayingSongIndex    int             `json:"playingSongIndex"`
 	Songs               map[string]Song `json:"songs"`
 }
 
@@ -41,29 +40,29 @@ type RedisRoomParticipant struct {
 
 // RedisRoomData はRedisに保存するルーム情報を表します
 type RedisRoomData struct {
-	RoomStatus   string                 `json:"roomStatus"`
-	PlaylistID   string                 `json:"playingPlaylistId"`
-	SongID       string                 `json:"playingSongId"`
-	UpdateSongAt string                 `json:"updateSongAt"`
-	Participants []RedisRoomParticipant `json:"participants"`
+	RoomStatus       string                 `json:"room_status"`
+	PlayingSongIndex int                    `json:"playing_song_index"`
+	UpdateSongAt     string                 `json:"update_song_at"`
+	Participants     []RedisRoomParticipant `json:"participants"`
 }
 
 // RoomAllInfo はルーム情報を表します（MySQLとRedisのデータを統合）
 type RoomAllInfo struct {
-	RoomID              int           `db:"room_id" json:"roomId"`
-	RoomName            string        `db:"room_name" json:"roomName"`
-	IsPublic            bool          `db:"is_public" json:"isPublic"`
-	Genre               string        `db:"genre" json:"genre"`
-	PlayingPlaylistName string        `db:"playing_playlist_name" json:"playingPlaylistName"`
-	PlayingSongName     string        `db:"playing_song_name" json:"playingSongName"`
-	MaxParticipants     int           `db:"max_participants" json:"maxParticipants"`
-	NowParticipants     int           `db:"now_participants" json:"nowParticipants"`
-	HostUserID          int           `db:"host_user_id" json:"hostUserId"`
-	HostUserName        string        `db:"host_user_name" json:"hostUserName"`
-	CreateAt            time.Time     `db:"created_at" json:"createAt"`
-	UpdateAt            time.Time     `db:"updated_at" json:"updateAt"`
-	DeletedAt           sql.NullTime  `db:"deleted_at" json:"deletedAt"`
-	RedisData           RedisRoomData `json:"redisData"` // Redisからの情報
+	RoomID              int             `db:"room_id" json:"roomId"`
+	RoomName            string          `db:"room_name" json:"roomName"`
+	IsPublic            bool            `db:"is_public" json:"isPublic"`
+	Genre               string          `db:"genre" json:"genre"`
+	PlayingPlaylistName string          `db:"playing_playlist_name" json:"playingPlaylistName"`
+	PlayingSongName     string          `db:"playing_song_name" json:"playingSongName"`
+	MaxParticipants     int             `db:"max_participants" json:"maxParticipants"`
+	NowParticipants     int             `db:"now_participants" json:"nowParticipants"`
+	HostUserID          int             `db:"host_user_id" json:"hostUserId"`
+	HostUserName        string          `db:"host_user_name" json:"hostUserName"`
+	CreateAt            time.Time       `db:"created_at" json:"createAt"`
+	UpdateAt            time.Time       `db:"updated_at" json:"updateAt"`
+	DeletedAt           sql.NullTime    `db:"deleted_at" json:"deletedAt"`
+	RedisData           RedisRoomData   `json:"redisData"` // Redisからの情報
+	Songs               map[string]Song `json:"songs"`     // 追加：曲情報。キーは song_index を文字列に変換したもの
 }
 
 type RoomRepository interface {
@@ -117,11 +116,10 @@ func (r *roomRepository) CreateRoom(input RoomCreateInput) (int, error) {
 	// Redis用のデータを作成
 	now := time.Now().Format("200601021504") // YYYYMMDDHHmm形式
 	redisData := &RedisRoomData{
-		RoomStatus:   "playing",
-		PlaylistID:   input.PlayingPlaylistID,
-		SongID:       input.PlayingSongID,
-		UpdateSongAt: now,
-		Participants: []RedisRoomParticipant{}, // 初期状態では参加者なし（ホストは別管理）
+		RoomStatus:       "playing",
+		PlayingSongIndex: input.PlayingSongIndex,
+		UpdateSongAt:     now,
+		Participants:     []RedisRoomParticipant{}, // 初期状態では参加者なし（ホストは別管理）
 	}
 
 	// Redisにデータを保存
@@ -307,7 +305,31 @@ func (r *roomRepository) GetRoomByID(roomID int) (*RoomAllInfo, error) {
 	if err = json.Unmarshal([]byte(val), &redisData); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal Redis data: %w", err)
 	}
-
 	room.RedisData = redisData
+
+	// trx_rooms_songs から指定された roomID の曲情報を取得
+	songsQuery := `
+        SELECT song_index, song_id, song_name, artist, song_length, song_image_url 
+        FROM trx_rooms_songs 
+        WHERE room_id = ?
+        ORDER BY song_index ASC
+    `
+	rows, err := r.DB.Query(songsQuery, roomID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get songs: %w", err)
+	}
+	defer rows.Close()
+
+	songs := make(map[string]Song)
+	for rows.Next() {
+		var songIndex int
+		var song Song
+		if err := rows.Scan(&songIndex, &song.SongId, &song.SongName, &song.Artist, &song.SongLength, &song.SongImageUrl); err != nil {
+			return nil, fmt.Errorf("failed to scan song: %w", err)
+		}
+		songs[fmt.Sprintf("%d", songIndex)] = song
+	}
+	room.Songs = songs
+
 	return &room, nil
 }

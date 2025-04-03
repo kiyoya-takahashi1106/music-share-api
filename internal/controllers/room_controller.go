@@ -195,10 +195,12 @@ func (ctrl *RoomController) GetRoom(c *gin.Context) {
 		"playingPlaylistName": room.PlayingPlaylistName,
 		"playingSongName":     room.PlayingSongName,
 		// Redis側の情報をフラットに展開
-		"roomStatus":        room.RedisData.RoomStatus,
-		"playingPlaylistId": room.RedisData.PlaylistID,
-		"playingSongId":     room.RedisData.SongID,
-		"updateSongAt":      room.RedisData.UpdateSongAt,
-		"participants":      room.RedisData.Participants,
+		"roomStatus": room.RedisData.RoomStatus,
+		// "playingPlaylistId": room.RedisData.PlaylistID,
+		// "playingSongId":     room.RedisData.SongID,
+		"playingSongIndex": room.RedisData.PlayingSongIndex,
+		"updateSongAt":     room.RedisData.UpdateSongAt,
+		"participants":     room.RedisData.Participants,
+		"songs":            room.Songs,
 	})
 }
